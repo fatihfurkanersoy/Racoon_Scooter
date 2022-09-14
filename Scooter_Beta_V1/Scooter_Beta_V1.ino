@@ -190,7 +190,8 @@ long lastMsg = 0;
 
 //--------------------------------------------------------------------------------------------
 // Scooter Data
-int lock_data;                      // Start - Stop ( Scooter and Lock)
+int lock_data; // Start - Stop ( Scooter and Lock)
+
 String IMEISENDDATA = "IMEI ERROR"; // IMEI'yi cihazdan almak ve topic'e ekleme yapmak icin
 char datasendtopic[50];             // Verilein gonderildiği topic IMEI 'nın char'a donusturulmesi PUBLISH
 String IMEI = "IMEI ERROR";         // IMEI'yi cihazdan almak icin
@@ -202,10 +203,12 @@ float okunandeger[100];
 float deger = 0;
 float yuzde = -1;
 
+// Servo bypass vs
 int servo_status = 0;
 int servo_otuz_status = 0;
+int servo_buton_status = 0;
 
-int period = 30000;
+int period = 10000;
 unsigned long time_now = 0;
 unsigned long buton_one_time_now = 0;
 int buton_one_period = 29000;
@@ -215,6 +218,7 @@ unsigned long BUZZER_time_now = 0;
 int buzzer_status = 0;
 
 int mqttconnecttryjustone = 0;
+
 //--------------------------------------------------------------------------------------------
 // MICROZERR PCB POWER PIN CONFIG
 #define RELAY_SCOOTER_STATUS 33
@@ -224,7 +228,7 @@ int mqttconnecttryjustone = 0;
 //--------------------------------------------------------------------------------------------
 // watchdog
 #include <esp_task_wdt.h>
-// 3 seconds WDT
+// 800 seconds WDT
 #define WDT_TIMEOUT 800
 
 //--------------------------------------------------------------------------------------------
@@ -469,6 +473,7 @@ void loop()
     PublishMqttData();
     mqttconnecttryjustone = 0;
   }
+
   if (!mqtt.connected())
   {
     uint32_t t = millis();
@@ -509,9 +514,9 @@ void loop()
   }
   //--------------------------------------------------------------------------------------------
   // BUTTON - LOCK CONTROL
-  if (digitalRead(BUTTON_LOCK) == 0)
+  servo_buton_status = digitalRead(BUTTON_LOCK);
+  if (servo_buton_status == 0)
   {
-
     if (servo_status == 1)
     {
       if (millis() > time_now + period)
@@ -521,17 +526,18 @@ void loop()
     }
     else if (servo_status == 0)
     {
-      myservo.write(20);
+      myservo.write(20); // kilitle
+      PublishMqttData();
     }
   }
 
-  if (digitalRead(BUTTON_LOCK) == 1)
+  if (servo_buton_status == 1)
   {
     if (servo_otuz_status == 1)
     {
       if (millis() > buton_one_time_now + buton_one_period)
       {
-        myservo.write(40);
+        myservo.write(40); // aç (yarı açık çünkü oturtsun diye)
         servo_otuz_status = 0;
       }
     }
@@ -570,6 +576,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       digitalWrite(RELAY_SCOOTER_STATUS, HIGH);
       lock_data = 1;
       myservo.write(60);
+      ReadBattery();
       PublishMqttData();
       servo_status = 1;
       servo_otuz_status = 1;
@@ -585,6 +592,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
       digitalWrite(RELAY_SCOOTER_STATUS, LOW);
       EEPROM.write(EE_ADRESS, lock_data);
       EEPROM.commit();
+      ReadBattery();
       PublishMqttData();
     }
     else if (gelendeger == "buzon")
@@ -629,25 +637,6 @@ boolean mqttConnect()
   return mqtt.connected();
 }
 
-// 230711
-//--------------------------------------------------------------------------------------------
-//  SIM800L TTGO IP5306 Charger
-//--------------------------------------------------------------------------------------------
-bool setPowerBoostKeepOn(int en)
-{
-  I2CPower.beginTransmission(IP5306_ADDR);
-  I2CPower.write(IP5306_REG_SYS_CTL0);
-  if (en)
-  {
-    I2CPower.write(0x37); // Set bit1: 1 enable 0 disable boost keep on
-  }
-  else
-  {
-    I2CPower.write(0x35); // 0x37 is default reg value
-  }
-  return I2CPower.endTransmission() == 0;
-}
-
 //--------------------------------------------------------------------------------------------
 // DATA
 //--------------------------------------------------------------------------------------------
@@ -659,6 +648,8 @@ void PublishMqttData()
   Message["sb"] = yuzde; // yuzde -- battery
   Message["ib"] = 100;
   Message["sf"] = lock_data;
+  Message["ls"] = servo_buton_status;
+
   char JSONmessageBuffer[200];
   serializeJsonPretty(Message, JSONmessageBuffer);
   // MQTT PUBLISH
@@ -707,4 +698,23 @@ void Check_SC_Relay_Status()
     digitalWrite(RELAY_SCOOTER_STATUS, LOW);
   }
   EEPROM.commit();
+}
+
+// 230711
+//--------------------------------------------------------------------------------------------
+//  SIM800L TTGO IP5306 Charger
+//--------------------------------------------------------------------------------------------
+bool setPowerBoostKeepOn(int en)
+{
+  I2CPower.beginTransmission(IP5306_ADDR);
+  I2CPower.write(IP5306_REG_SYS_CTL0);
+  if (en)
+  {
+    I2CPower.write(0x37); // Set bit1: 1 enable 0 disable boost keep on
+  }
+  else
+  {
+    I2CPower.write(0x35); // 0x37 is default reg value
+  }
+  return I2CPower.endTransmission() == 0;
 }
