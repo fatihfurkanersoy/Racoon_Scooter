@@ -208,10 +208,10 @@ int servo_status = 0;
 int servo_otuz_status = 0;
 int servo_buton_status = 0;
 
-int period = 10000;
+int period = 30000;
 unsigned long time_now = 0;
 unsigned long buton_one_time_now = 0;
-int buton_one_period = 29000;
+int buton_one_period = 10000;
 
 int BUZZER_period = 5000;
 unsigned long BUZZER_time_now = 0;
