@@ -208,6 +208,9 @@ int servo_status = 0;
 int servo_otuz_status = 0;
 int servo_buton_status = 0;
 
+int lock_start = -1;
+int lock_status = -1;
+
 int period = 30000;
 unsigned long time_now = 0;
 unsigned long buton_one_time_now = 0;
@@ -454,6 +457,9 @@ void setup()
 //--------------------------------------------------------------------------------------------
 void loop()
 {
+
+  servo_buton_status = digitalRead(BUTTON_LOCK); // LOCK STATUS CONTROL
+
   esp_task_wdt_reset();
   // OTA
   server.handleClient();
@@ -513,9 +519,22 @@ void loop()
     }
   }
   //--------------------------------------------------------------------------------------------
+  //--------------------------------------------------------------------------------------------
+  // BUTON STATUS FOT LOCK SEND MQTT
+  if (lock_start == 1)
+  {
+    lock_status = 1; // kilitli değil demek
+
+    if (servo_buton_status == 0)
+    {
+      lock_status = 0;
+      lock_start = 0;
+    }
+  }
+
+  //--------------------------------------------------------------------------------------------
   // BUTTON - LOCK CONTROL
-  servo_buton_status = digitalRead(BUTTON_LOCK);
-  if (servo_buton_status == 0)
+  if (servo_buton_status == 0) // butonu okuduk
   {
     if (servo_status == 1)
     {
@@ -527,7 +546,6 @@ void loop()
     else if (servo_status == 0)
     {
       myservo.write(20); // kilitle
-      PublishMqttData();
     }
   }
 
@@ -573,6 +591,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
     if (gelendeger == "start")
     {
+      lock_start = 1;
       digitalWrite(RELAY_SCOOTER_STATUS, HIGH);
       lock_data = 1;
       myservo.write(60);
@@ -648,7 +667,7 @@ void PublishMqttData()
   Message["sb"] = yuzde; // yuzde -- battery
   Message["ib"] = 100;
   Message["sf"] = lock_data;
-  Message["ls"] = servo_buton_status;
+  Message["ls"] = lock_status;
 
   char JSONmessageBuffer[200];
   serializeJsonPretty(Message, JSONmessageBuffer);
