@@ -187,6 +187,8 @@ PubSubClient mqtt(client);
 // send msg time
 uint32_t lastReconnectAttempt = 0;
 long lastMsg = 0;
+long send_1_sec_data_mqtt = 0;
+int send_1_sec_data_status = -1;
 
 //--------------------------------------------------------------------------------------------
 // Scooter Data
@@ -497,16 +499,29 @@ void loop()
   //--------------------------------------------------------------------------------------------
   // PUBLISH DATA
   //--------------------------------------------------------------------------------------------
-  long now = millis();
-  if (now - lastMsg > 300000)
-  {
-    lastMsg = now;
 
-    //--------------------------------------------------------------------------------------------
-    // MQTT DATA PREPARE
-    ReadBattery();
-    PublishMqttData();
+  if (send_1_sec_data_status == 0)
+  {
+    long now = millis();
+    if (now - lastMsg > 300000)
+    {
+      lastMsg = now;
+      //--------------------------------------------------------------------------------------------
+      // MQTT DATA PREPARE
+      ReadBattery();
+      PublishMqttData();
+    }
   }
+  else
+  {
+    long now2 = millis();
+    if (now2 - send_1_sec_data_mqtt > 60000) // 60 sec
+    {
+      send_1_sec_data_mqtt = now2;
+      PublishMqttData();
+    }
+  }
+
   //--------------------------------------------------------------------------------------------
   // BUZZER SUSTURMA
 
@@ -592,6 +607,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     if (gelendeger == "start")
     {
       lock_start = 1;
+      send_1_sec_data_status = 1;
       digitalWrite(RELAY_SCOOTER_STATUS, HIGH);
       lock_data = 1;
       myservo.write(60);
@@ -606,6 +622,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     }
     else if (gelendeger == "stop")
     {
+      send_1_sec_data_status = 0;
       lock_data = 0;
       myservo.write(20);
       digitalWrite(RELAY_SCOOTER_STATUS, LOW);
