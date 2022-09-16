@@ -628,6 +628,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
     else if (gelendeger == "unlock")
     {
+      lock_start = 1;
       myservo.write(60);
       servo_status = 1;
       servo_otuz_status = 1;
