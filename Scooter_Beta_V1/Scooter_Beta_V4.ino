@@ -545,6 +545,7 @@ void loop()
     {
       lock_status = 0;
       lock_start = 0;
+      PublishMqttData();
     }
   }
 
