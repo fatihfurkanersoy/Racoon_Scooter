@@ -213,10 +213,10 @@ int servo_buton_status = 0;
 int lock_start = -1;
 int lock_status = -1;
 
-int period = 30000;
+int period = 13000;
 unsigned long time_now = 0;
 unsigned long buton_one_time_now = 0;
-int buton_one_period = 10000;
+int buton_one_period = 12800;
 
 int BUZZER_period = 5000;
 unsigned long BUZZER_time_now = 0;
